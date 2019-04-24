@@ -346,6 +346,8 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
         msgInner.setStoreHost(this.getStoreHost());
         msgInner.setReconsumeTimes(requestHeader.getReconsumeTimes() == null ? 0 : requestHeader.getReconsumeTimes());
         PutMessageResult putMessageResult = null;
+
+        // CODE_MARK [transaction] 获取消息的属性，看看有没有事务消息的标志
         Map<String, String> oriProps = MessageDecoder.string2messageProperties(requestHeader.getProperties());
         String traFlag = oriProps.get(MessageConst.PROPERTY_TRANSACTION_PREPARED);
         if (traFlag != null && Boolean.parseBoolean(traFlag)) {
@@ -356,6 +358,8 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
                         + "] sending transaction message is forbidden");
                 return response;
             }
+
+            // CODE_MARK [transaction] prepare message
             putMessageResult = this.brokerController.getTransactionalMessageService().prepareMessage(msgInner);
         } else {
             putMessageResult = this.brokerController.getMessageStore().putMessage(msgInner);

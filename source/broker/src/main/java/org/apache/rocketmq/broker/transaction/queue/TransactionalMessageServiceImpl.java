@@ -61,6 +61,7 @@ public class TransactionalMessageServiceImpl implements TransactionalMessageServ
 
     @Override
     public PutMessageResult prepareMessage(MessageExtBrokerInner messageInner) {
+        // CODE_MARK [transaction] prepare 即是 half message
         return transactionalMessageBridge.putHalfMessage(messageInner);
     }
 
@@ -121,13 +122,17 @@ public class TransactionalMessageServiceImpl implements TransactionalMessageServ
     public void check(long transactionTimeout, int transactionCheckMax,
         AbstractTransactionalMessageCheckListener listener) {
         try {
+            // CODE_MARK [transaction] 只这个指定的 topic 取出 message queue
             String topic = MixAll.RMQ_SYS_TRANS_HALF_TOPIC;
             Set<MessageQueue> msgQueues = transactionalMessageBridge.fetchMessageQueues(topic);
             if (msgQueues == null || msgQueues.size() == 0) {
                 log.warn("The queue of topic is empty :" + topic);
                 return;
             }
+
             log.debug("Check topic={}, queues={}", topic, msgQueues);
+
+            // CODE_MARK [transaction] 循环对每个 queue 的消息检查事务
             for (MessageQueue messageQueue : msgQueues) {
                 long startTime = System.currentTimeMillis();
                 MessageQueue opQueue = getOpQueue(messageQueue);
@@ -161,6 +166,8 @@ public class TransactionalMessageServiceImpl implements TransactionalMessageServ
                         log.info("Half offset {} has been committed/rolled back", i);
                         removeMap.remove(i);
                     } else {
+
+                        // CODE_MARK [transaction] 取得一个 half message
                         GetResult getResult = getHalfMsg(messageQueue, i);
                         MessageExt msgExt = getResult.getMsg();
                         if (msgExt == null) {
@@ -180,6 +187,7 @@ public class TransactionalMessageServiceImpl implements TransactionalMessageServ
                             }
                         }
 
+                        // CODE_MARK [transaction] 检查是否应该丢弃消息
                         if (needDiscard(msgExt, transactionCheckMax) || needSkip(msgExt)) {
                             listener.resolveDiscardMsg(msgExt);
                             newOffset = i + 1;
@@ -220,6 +228,8 @@ public class TransactionalMessageServiceImpl implements TransactionalMessageServ
                             if (!putBackHalfMsgQueue(msgExt, i)) {
                                 continue;
                             }
+
+                            // CODE_MARK [transaction] 异步询问 clinet
                             listener.resolveHalfMsg(msgExt);
                         } else {
                             pullResult = fillOpRemoveMap(removeMap, opQueue, pullResult.getNextBeginOffset(), halfOffset, doneOpOffset);

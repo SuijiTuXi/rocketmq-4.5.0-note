@@ -84,6 +84,7 @@ public class ClientRemotingProcessor implements NettyRequestProcessor {
         return false;
     }
 
+    // CODE_MARK [transaction] 处理 borker 的事务查询
     public RemotingCommand checkTransactionState(ChannelHandlerContext ctx,
         RemotingCommand request) throws RemotingCommandException {
         final CheckTransactionStateRequestHeader requestHeader =
@@ -97,6 +98,7 @@ public class ClientRemotingProcessor implements NettyRequestProcessor {
             }
             final String group = messageExt.getProperty(MessageConst.PROPERTY_PRODUCER_GROUP);
             if (group != null) {
+                // CODE_MARK [transaction] group 的 producer 才会处理
                 MQProducerInner producer = this.mqClientFactory.selectProducer(group);
                 if (producer != null) {
                     final String addr = RemotingHelper.parseChannelRemoteAddr(ctx.channel());

@@ -59,6 +59,7 @@ public class Broker2Client {
         this.brokerController = brokerController;
     }
 
+    // CODE_MARK [transaction] 发送 CHECK_TRANSACTION_STATE 命令给 clinet
     public void checkProducerTransactionState(
         final String group,
         final Channel channel,

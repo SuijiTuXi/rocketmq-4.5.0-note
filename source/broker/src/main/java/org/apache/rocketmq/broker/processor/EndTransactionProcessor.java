@@ -123,6 +123,8 @@ public class EndTransactionProcessor implements NettyRequestProcessor {
         }
         OperationResult result = new OperationResult();
         if (MessageSysFlag.TRANSACTION_COMMIT_TYPE == requestHeader.getCommitOrRollback()) {
+
+            // CODE_MARK [transaction] 提交消息
             result = this.brokerController.getTransactionalMessageService().commitMessage(requestHeader);
             if (result.getResponseCode() == ResponseCode.SUCCESS) {
                 RemotingCommand res = checkPrepareMessage(result.getPrepareMessage(), requestHeader);
@@ -133,6 +135,8 @@ public class EndTransactionProcessor implements NettyRequestProcessor {
                     msgInner.setPreparedTransactionOffset(requestHeader.getCommitLogOffset());
                     msgInner.setStoreTimestamp(result.getPrepareMessage().getStoreTimestamp());
                     RemotingCommand sendResult = sendFinalMessage(msgInner);
+
+                    // CODE_MARK [transaction] 提交成功就清理 prepare 消息
                     if (sendResult.getCode() == ResponseCode.SUCCESS) {
                         this.brokerController.getTransactionalMessageService().deletePrepareMessage(result.getPrepareMessage());
                     }
@@ -141,15 +145,22 @@ public class EndTransactionProcessor implements NettyRequestProcessor {
                 return res;
             }
         } else if (MessageSysFlag.TRANSACTION_ROLLBACK_TYPE == requestHeader.getCommitOrRollback()) {
+
+            // CODE_MARK [transaction] 回滚消息，其实就是设置一下 half message 的属性
             result = this.brokerController.getTransactionalMessageService().rollbackMessage(requestHeader);
             if (result.getResponseCode() == ResponseCode.SUCCESS) {
                 RemotingCommand res = checkPrepareMessage(result.getPrepareMessage(), requestHeader);
+
+                // CODE_MARK [transaction] 回滚成功就清理 prepare 消息
                 if (res.getCode() == ResponseCode.SUCCESS) {
                     this.brokerController.getTransactionalMessageService().deletePrepareMessage(result.getPrepareMessage());
                 }
                 return res;
             }
         }
+
+        // CODE_MARK [transaction] 还是 UNKNOWN 就什么都不做
+
         response.setCode(result.getResponseCode());
         response.setRemark(result.getResponseRemark());
         return response;

@@ -313,6 +313,8 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                             localTransactionState = transactionCheckListener.checkLocalTransactionState(message);
                         } else if (transactionListener != null) {
                             log.debug("Used new check API in transaction message");
+
+                            // CODE_MARK [transaction] 调用客户代码检查事务
                             localTransactionState = transactionListener.checkLocalTransaction(message);
                         } else {
                             log.warn("CheckTransactionState, pick transactionListener by group[{}] failed", group);
@@ -322,6 +324,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                         exception = e;
                     }
 
+                    // CODE_MARK [transaction] 处理查询处理，又调用 endTransaction
                     this.processTransactionState(
                         localTransactionState,
                         group,
@@ -1152,6 +1155,8 @@ public class DefaultMQProducerImpl implements MQProducerInner {
         Validators.checkMessage(msg, this.defaultMQProducer);
 
         SendResult sendResult = null;
+
+        // CODE_MARK [transaction] 事务消息其实就是有特别属性的消息
         MessageAccessor.putProperty(msg, MessageConst.PROPERTY_TRANSACTION_PREPARED, "true");
         MessageAccessor.putProperty(msg, MessageConst.PROPERTY_PRODUCER_GROUP, this.defaultMQProducer.getProducerGroup());
         try {
@@ -1176,6 +1181,8 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                         localTransactionState = localTransactionExecuter.executeLocalTransactionBranch(msg, arg);
                     } else if (transactionListener != null) {
                         log.debug("Used new transaction API");
+
+                        // CODE_MARK [transaction] 消息发送成功，执行后续事务
                         localTransactionState = transactionListener.executeLocalTransaction(msg, arg);
                     }
                     if (null == localTransactionState) {
@@ -1203,6 +1210,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
         }
 
         try {
+            // CODE_MARK [transaction] 结束事务
             this.endTransaction(sendResult, localTransactionState, localException);
         } catch (Exception e) {
             log.warn("local transaction execute " + localTransactionState + ", but end broker transaction failed", e);
@@ -1259,6 +1267,8 @@ public class DefaultMQProducerImpl implements MQProducerInner {
         requestHeader.setTranStateTableOffset(sendResult.getQueueOffset());
         requestHeader.setMsgId(sendResult.getMsgId());
         String remark = localException != null ? ("executeLocalTransactionBranch exception: " + localException.toString()) : null;
+
+        // CODE_MARK [transaction] 结束事务就是发一个命令给 broker，注意是 oneway 的
         this.mQClientFactory.getMQClientAPIImpl().endTransactionOneway(brokerAddr, requestHeader, remark,
             this.defaultMQProducer.getSendMsgTimeout());
     }

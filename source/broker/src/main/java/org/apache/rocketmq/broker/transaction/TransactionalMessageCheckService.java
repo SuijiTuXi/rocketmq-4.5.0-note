@@ -22,6 +22,7 @@ import org.apache.rocketmq.common.constant.LoggerName;
 import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.logging.InternalLoggerFactory;
 
+// CODE_MARK [transaction] 负责询问 client 事务消息是否完成
 public class TransactionalMessageCheckService extends ServiceThread {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.TRANSACTION_LOGGER_NAME);
 
@@ -39,6 +40,8 @@ public class TransactionalMessageCheckService extends ServiceThread {
     @Override
     public void run() {
         log.info("Start transaction check service thread!");
+
+        // CODE_MARK [transaction] 检查事务的间隔
         long checkInterval = brokerController.getBrokerConfig().getTransactionCheckInterval();
         while (!this.isStopped()) {
             this.waitForRunning(checkInterval);
@@ -48,8 +51,11 @@ public class TransactionalMessageCheckService extends ServiceThread {
 
     @Override
     protected void onWaitEnd() {
+
+        // CODE_MARK [transaction] 超时时间和最大检查次数
         long timeout = brokerController.getBrokerConfig().getTransactionTimeOut();
         int checkMax = brokerController.getBrokerConfig().getTransactionCheckMax();
+
         long begin = System.currentTimeMillis();
         log.info("Begin to check prepare message, begin time:{}", begin);
         this.brokerController.getTransactionalMessageService().check(timeout, checkMax, this.brokerController.getTransactionalMessageCheckListener());

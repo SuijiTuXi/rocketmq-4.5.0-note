@@ -19,6 +19,7 @@ package org.apache.rocketmq.client.producer;
 import org.apache.rocketmq.common.message.Message;
 import org.apache.rocketmq.common.message.MessageExt;
 
+// CODE_MARK [transaction] prepare 消息成功发送到 broker 后， client 会调用注册的 TransactionListener 处理后续事务
 public interface TransactionListener {
     /**
      * When send transactional prepare(half) message succeed, this method will be invoked to execute local transaction.

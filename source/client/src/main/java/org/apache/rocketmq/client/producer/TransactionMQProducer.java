@@ -21,6 +21,7 @@ import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.common.message.Message;
 import org.apache.rocketmq.remoting.RPCHook;
 
+// CODE_MARK [transaction] 可以发送事务消息的 producer
 public class TransactionMQProducer extends DefaultMQProducer {
     private TransactionCheckListener transactionCheckListener;
     private int checkThreadPoolMinSize = 1;
@@ -29,6 +30,7 @@ public class TransactionMQProducer extends DefaultMQProducer {
 
     private ExecutorService executorService;
 
+    // CODE_MARK [transaction] 处理后续事务的 listener
     private TransactionListener transactionListener;
 
     public TransactionMQProducer() {
@@ -69,6 +71,7 @@ public class TransactionMQProducer extends DefaultMQProducer {
         return this.defaultMQProducerImpl.sendMessageInTransaction(msg, tranExecuter, arg);
     }
 
+    // CODE_MARK [transaction] 发送事务消息
     @Override
     public TransactionSendResult sendMessageInTransaction(final Message msg,
         final Object arg) throws MQClientException {

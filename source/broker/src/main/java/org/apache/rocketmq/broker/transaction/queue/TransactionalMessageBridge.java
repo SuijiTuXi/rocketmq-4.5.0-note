@@ -190,6 +190,7 @@ public class TransactionalMessageBridge {
         return store.putMessage(parseHalfMessageInner(messageInner));
     }
 
+    // CODE_MARK [transaction] half message 就是发往特别 TOPIC 的消息
     private MessageExtBrokerInner parseHalfMessageInner(MessageExtBrokerInner msgInner) {
         MessageAccessor.putProperty(msgInner, MessageConst.PROPERTY_REAL_TOPIC, msgInner.getTopic());
         MessageAccessor.putProperty(msgInner, MessageConst.PROPERTY_REAL_QUEUE_ID,
