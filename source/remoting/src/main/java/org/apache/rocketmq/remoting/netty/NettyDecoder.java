@@ -26,6 +26,7 @@ import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.logging.InternalLoggerFactory;
 import org.apache.rocketmq.remoting.protocol.RemotingCommand;
 
+// CODE_MARK [remoting] 从 ByteBuffer 读取 RemotingCommand
 public class NettyDecoder extends LengthFieldBasedFrameDecoder {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(RemotingHelper.ROCKETMQ_REMOTING);
 
@@ -33,6 +34,7 @@ public class NettyDecoder extends LengthFieldBasedFrameDecoder {
         Integer.parseInt(System.getProperty("com.rocketmq.remoting.frameMaxLength", "16777216"));
 
     public NettyDecoder() {
+        // CODE_MARK [remoting] 头 4 个字节是长度域，将4个字节后的 N （长度域的值）个节点传给后面的 decoder
         super(FRAME_MAX_LENGTH, 0, 4, 0, 4);
     }
 

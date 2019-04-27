@@ -75,10 +75,16 @@ public class NettyRemotingClient extends NettyRemotingAbstract implements Remoti
 
     private final NettyClientConfig nettyClientConfig;
     private final Bootstrap bootstrap = new Bootstrap();
+    // CODE_MARK [remoting] 有 2 个线程池用于处理网络，
+    //      eventLoopGroupWorker 处理网络读写
+    //      defaultEventExecutorGroup 执行 handler 的代码
     private final EventLoopGroup eventLoopGroupWorker;
     private final Lock lockChannelTables = new ReentrantLock();
+
+    // CODE_MARK [remoting] 保存 channel，不需要每次都创建
     private final ConcurrentMap<String /* addr */, ChannelWrapper> channelTables = new ConcurrentHashMap<String, ChannelWrapper>();
 
+    // CODE_MARK [remoting] 定期清理过期的 ResponseFuture
     private final Timer timer = new Timer("ClientHouseKeepingService", true);
 
     private final AtomicReference<List<String>> namesrvAddrList = new AtomicReference<List<String>>();
@@ -86,12 +92,15 @@ public class NettyRemotingClient extends NettyRemotingAbstract implements Remoti
     private final AtomicInteger namesrvIndex = new AtomicInteger(initValueIndex());
     private final Lock lockNamesrvChannel = new ReentrantLock();
 
+    // CODE_MARK [remoting] 如果 processor 没设定线程池，就用这个
     private final ExecutorService publicExecutor;
 
     /**
      * Invoke the callback methods in this executor when process response.
+     * CODE_MARK [remoting] 执行 callback 的线程池
      */
     private ExecutorService callbackExecutor;
+    // CODE_MARK [remoting] netty event listener
     private final ChannelEventListener channelEventListener;
     private DefaultEventExecutorGroup defaultEventExecutorGroup;
 
@@ -393,6 +402,7 @@ public class NettyRemotingClient extends NettyRemotingAbstract implements Remoti
         }
     }
 
+    // CODE_MARK [remoting] 创建 netty channel
     private Channel getAndCreateChannel(final String addr) throws InterruptedException {
         if (null == addr) {
             return getAndCreateNameserverChannel();

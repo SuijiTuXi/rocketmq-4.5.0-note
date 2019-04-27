@@ -24,19 +24,24 @@ import org.apache.rocketmq.remoting.InvokeCallback;
 import org.apache.rocketmq.remoting.common.SemaphoreReleaseOnlyOnce;
 import org.apache.rocketmq.remoting.protocol.RemotingCommand;
 
+// CODE_MARK [remoting] 向远程发出 request 后，用于处理后续返回的 response
 public class ResponseFuture {
     private final int opaque;
     private final Channel processChannel;
     private final long timeoutMillis;
     private final InvokeCallback invokeCallback;
     private final long beginTimestamp = System.currentTimeMillis();
+
+    // CODE_MARK [remoting] 等待结果，waitResponse 时调用 countDownLatch. await, 有结果后，将结果写到 ResponseFuture并调用 countDownLatch.countDown()
     private final CountDownLatch countDownLatch = new CountDownLatch(1);
 
     private final SemaphoreReleaseOnlyOnce once;
 
     private final AtomicBoolean executeCallbackOnlyOnce = new AtomicBoolean(false);
+    // CODE_MARK [remoting] 远程调用返回的 response
     private volatile RemotingCommand responseCommand;
     private volatile boolean sendRequestOK = true;
+    // CODE_MARK [remoting] 保存异常
     private volatile Throwable cause;
 
     public ResponseFuture(Channel channel, int opaque, long timeoutMillis, InvokeCallback invokeCallback,

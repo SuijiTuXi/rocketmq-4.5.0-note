@@ -24,6 +24,21 @@ import org.apache.rocketmq.logging.InternalLoggerFactory;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
+/**
+ * CODE_MARK [remoting]
+ *
+ * 桥接 netty 的 log 到 rocketmq。
+ *
+ * netty 没有默认支持一种日志框架，而是自动检测用户使用什么日志框架，它就用什么日志
+ * 见 https://segmentfault.com/a/1190000005797595
+ *
+ * netty 使用 InternalLoggerFactory 实现日志框架检测并生成 logger，
+ * 而 NettyLogger 就是将 InternalLoggerFactory 的 logger 工厂设置成 NettyBridgeLoggerFactory。
+ *
+ * NettyBridgeLoggerFactory  生成的 logger 是 NettyBridgeLogger，它将日志桥接到了 reocketmq 的
+ * 日志框架 rocketmq-logging
+ *
+ */
 public class NettyLogger {
 
     private static AtomicBoolean nettyLoggerSeted = new AtomicBoolean(false);

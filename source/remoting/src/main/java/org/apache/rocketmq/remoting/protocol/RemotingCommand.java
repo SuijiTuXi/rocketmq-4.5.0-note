@@ -56,6 +56,7 @@ public class RemotingCommand {
     private static volatile int configVersion = -1;
     private static AtomicInteger requestId = new AtomicInteger(0);
 
+    // CODE_MARK [remoting] 序列化类型，这个是 body 的序列化类型
     private static SerializeType serializeTypeConfigInThisServer = SerializeType.JSON;
 
     static {
@@ -141,6 +142,7 @@ public class RemotingCommand {
         return decode(byteBuffer);
     }
 
+    // CODE_MARK [remoting] 从 ByteBuffer 得到 RemotingCommand 并返回
     public static RemotingCommand decode(final ByteBuffer byteBuffer) {
         int length = byteBuffer.limit();
         int oriHeaderLen = byteBuffer.getInt();
@@ -325,6 +327,7 @@ public class RemotingCommand {
         return name;
     }
 
+    // CODE_MARK [remoting] 将 RemotingCommand 写到 ByteBuffer 并返回
     public ByteBuffer encode() {
         // 1> header length size
         int length = 4;
@@ -359,6 +362,7 @@ public class RemotingCommand {
         return result;
     }
 
+    // CODE_MARK [remoting] handerEncode 不仅仅 encode header，而是整个 RemotingCommand
     private byte[] headerEncode() {
         this.makeCustomHeaderToNet();
         if (SerializeType.ROCKETMQ == serializeTypeCurrentRPC) {

@@ -65,17 +65,25 @@ import org.apache.rocketmq.remoting.protocol.RemotingCommand;
 public class NettyRemotingServer extends NettyRemotingAbstract implements RemotingServer {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(RemotingHelper.ROCKETMQ_REMOTING);
     private final ServerBootstrap serverBootstrap;
+    // CODE_MARK [remoting] 有 3 个线程池用于处理网络，
+    //      eventLoopGroupBoss 处理侦听
+    //      eventLoopGroupSelector 处理网络读写
+    //      defaultEventExecutorGroup 执行 handler 的代码
     private final EventLoopGroup eventLoopGroupSelector;
     private final EventLoopGroup eventLoopGroupBoss;
     private final NettyServerConfig nettyServerConfig;
 
+    // CODE_MARK [remoting] 如果 processor 没设定线程池，就用这个
     private final ExecutorService publicExecutor;
+
+    // CODE_MARK [remoting] netty event listener
     private final ChannelEventListener channelEventListener;
 
+    // CODE_MARK [remoting] 定期清理过期的 ResponseFuture
     private final Timer timer = new Timer("ServerHouseKeepingService", true);
     private DefaultEventExecutorGroup defaultEventExecutorGroup;
 
-
+    // CODE_MARK [remoting] 记录侦听的端口
     private int port = 0;
 
     private static final String HANDSHAKE_HANDLER_NAME = "handshakeHandler";
@@ -216,6 +224,7 @@ public class NettyRemotingServer extends NettyRemotingAbstract implements Remoti
             childHandler.childOption(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT);
         }
 
+        // CODE_MARK [remoting] 打开侦听端口
         try {
             ChannelFuture sync = this.serverBootstrap.bind().sync();
             InetSocketAddress addr = (InetSocketAddress) sync.channel().localAddress();

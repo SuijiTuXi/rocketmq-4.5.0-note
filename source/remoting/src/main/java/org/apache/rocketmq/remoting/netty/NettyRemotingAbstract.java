@@ -71,6 +71,8 @@ public abstract class NettyRemotingAbstract {
 
     /**
      * This map caches all on-going requests.
+     *
+     * CODE_MARK [remoting] 保存异步调用的ResponseFuture，等待 response
      */
     protected final ConcurrentMap<Integer /* opaque */, ResponseFuture> responseTable =
         new ConcurrentHashMap<Integer, ResponseFuture>(256);
@@ -78,6 +80,8 @@ public abstract class NettyRemotingAbstract {
     /**
      * This container holds all processors per request code, aka, for each incoming request, we may look up the
      * responding processor in this map to handle the request.
+     *
+     * CODE_MARK [remoting] 保存 processor 和 对应的执行线程池
      */
     protected final HashMap<Integer/* request code */, Pair<NettyRequestProcessor, ExecutorService>> processorTable =
         new HashMap<Integer, Pair<NettyRequestProcessor, ExecutorService>>(64);
@@ -137,6 +141,8 @@ public abstract class NettyRemotingAbstract {
 
     /**
      * Entry of incoming command processing.
+     *
+     * CODE_MARK [remoting] RemoteCommand 的处理入口，无论是 request 还是 response 都要从这里开始
      *
      * <p>
      * <strong>Note:</strong>
@@ -406,6 +412,7 @@ public abstract class NettyRemotingAbstract {
         final int opaque = request.getOpaque();
 
         try {
+            // CODE_MARK [remoting] 先创建并保存一个 ResponseFuture
             final ResponseFuture responseFuture = new ResponseFuture(channel, opaque, timeoutMillis, null, null);
             this.responseTable.put(opaque, responseFuture);
             final SocketAddress addr = channel.remoteAddress();
@@ -426,6 +433,7 @@ public abstract class NettyRemotingAbstract {
                 }
             });
 
+            // CODE_MARK [remoting] 同步调用，这里会等待 reponse 返回
             RemotingCommand responseCommand = responseFuture.waitResponse(timeoutMillis);
             if (null == responseCommand) {
                 if (responseFuture.isSendRequestOK()) {
@@ -456,6 +464,7 @@ public abstract class NettyRemotingAbstract {
                 throw new RemotingTimeoutException("invokeAsyncImpl call timeout");
             }
 
+            // CODE_MARK [remoting] 先创建并保存一个 ResponseFuture
             final ResponseFuture responseFuture = new ResponseFuture(channel, opaque, timeoutMillis - costTime, invokeCallback, once);
             this.responseTable.put(opaque, responseFuture);
             try {
@@ -470,6 +479,8 @@ public abstract class NettyRemotingAbstract {
                         log.warn("send a request command to channel <{}> failed.", RemotingHelper.parseChannelRemoteAddr(channel));
                     }
                 });
+
+                // CODE_MARK [remoting] 异步调用，这里直接返回了
             } catch (Exception e) {
                 responseFuture.release();
                 log.warn("send a request command to channel <" + RemotingHelper.parseChannelRemoteAddr(channel) + "> Exception", e);
@@ -530,6 +541,7 @@ public abstract class NettyRemotingAbstract {
         if (acquired) {
             final SemaphoreReleaseOnlyOnce once = new SemaphoreReleaseOnlyOnce(this.semaphoreOneway);
             try {
+                // CODE_MARK [remoting] 不需要创建 ResponseFuture 了
                 channel.writeAndFlush(request).addListener(new ChannelFutureListener() {
                     @Override
                     public void operationComplete(ChannelFuture f) throws Exception {
@@ -560,6 +572,7 @@ public abstract class NettyRemotingAbstract {
         }
     }
 
+    // CODE_MARK [remoting] 处理 Netty 事件的线程
     class NettyEventExecutor extends ServiceThread {
         private final LinkedBlockingQueue<NettyEvent> eventQueue = new LinkedBlockingQueue<NettyEvent>();
         private final int maxSize = 10000;

@@ -16,6 +16,7 @@
  */
 package org.apache.rocketmq.remoting.netty;
 
+// CODE_MARK [remoting] client 配置
 public class NettyClientConfig {
     /**
      * Worker thread number
