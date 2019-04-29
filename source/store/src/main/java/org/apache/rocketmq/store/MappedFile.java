@@ -41,26 +41,34 @@ import org.apache.rocketmq.store.config.FlushDiskType;
 import org.apache.rocketmq.store.util.LibC;
 import sun.nio.ch.DirectBuffer;
 
+// CODE_MARK [store-file] 操作内存映射文件
 public class MappedFile extends ReferenceResource {
+
+    // CODE_MARK [store-file] 操作系统一页内存的大小 4K
     public static final int OS_PAGE_SIZE = 1024 * 4;
+
     protected static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.STORE_LOGGER_NAME);
 
     private static final AtomicLong TOTAL_MAPPED_VIRTUAL_MEMORY = new AtomicLong(0);
-
     private static final AtomicInteger TOTAL_MAPPED_FILES = new AtomicInteger(0);
+
     protected final AtomicInteger wrotePosition = new AtomicInteger(0);
     //ADD BY ChenYang
     protected final AtomicInteger committedPosition = new AtomicInteger(0);
     private final AtomicInteger flushedPosition = new AtomicInteger(0);
+
     protected int fileSize;
     protected FileChannel fileChannel;
+
+    // CODE_MARK [store-file] 如果有 transientStorePool， 先写到 writeBuffer， 否则写 mappedByteBuffer
     /**
      * Message will put to here first, and then reput to FileChannel if writeBuffer is not null.
      */
     protected ByteBuffer writeBuffer = null;
     protected TransientStorePool transientStorePool = null;
+
     private String fileName;
-    private long fileFromOffset;
+    private long fileFromOffset; // CODE_MARK [store-file] 文件的逻辑 offset
     private File file;
     private MappedByteBuffer mappedByteBuffer;
     private volatile long storeTimestamp = 0;
@@ -78,6 +86,7 @@ public class MappedFile extends ReferenceResource {
         init(fileName, fileSize, transientStorePool);
     }
 
+    // CODE_MARK [store-file] 如果 store 目录不存在就创建
     public static void ensureDirOK(final String dirName) {
         if (dirName != null) {
             File f = new File(dirName);
@@ -150,6 +159,7 @@ public class MappedFile extends ReferenceResource {
         this.transientStorePool = transientStorePool;
     }
 
+    // // CODE_MARK [store-file] 创建一个文件，而且初始化 MappedFile 对象
     private void init(final String fileName, final int fileSize) throws IOException {
         this.fileName = fileName;
         this.fileSize = fileSize;
@@ -160,8 +170,10 @@ public class MappedFile extends ReferenceResource {
         ensureDirOK(this.file.getParent());
 
         try {
+            // CODE_MARK [store-file] 打开文件内存映射，mappedByteBuffer 是真正的文件内存
             this.fileChannel = new RandomAccessFile(this.file, "rw").getChannel();
             this.mappedByteBuffer = this.fileChannel.map(MapMode.READ_WRITE, 0, fileSize);
+
             TOTAL_MAPPED_VIRTUAL_MEMORY.addAndGet(fileSize);
             TOTAL_MAPPED_FILES.incrementAndGet();
             ok = true;
@@ -208,6 +220,8 @@ public class MappedFile extends ReferenceResource {
             ByteBuffer byteBuffer = writeBuffer != null ? writeBuffer.slice() : this.mappedByteBuffer.slice();
             byteBuffer.position(currentPos);
             AppendMessageResult result = null;
+
+            // CODE_MARK [store-putmessage] 调用 AppendMessageCallback.doAppend 写消息
             if (messageExt instanceof MessageExtBrokerInner) {
                 result = cb.doAppend(this.getFileFromOffset(), byteBuffer, this.fileSize - currentPos, (MessageExtBrokerInner) messageExt);
             } else if (messageExt instanceof MessageExtBatch) {
@@ -215,6 +229,8 @@ public class MappedFile extends ReferenceResource {
             } else {
                 return new AppendMessageResult(AppendMessageStatus.UNKNOWN_ERROR);
             }
+
+            // CODE_MARK [store-putmessage] append 完更新位置和时间戳
             this.wrotePosition.addAndGet(result.getWroteBytes());
             this.storeTimestamp = result.getStoreTimestamp();
             return result;
@@ -227,6 +243,7 @@ public class MappedFile extends ReferenceResource {
         return this.fileFromOffset;
     }
 
+    // CODE_MARK [store-putmessage] 直接往 fileChannel 写
     public boolean appendMessage(final byte[] data) {
         int currentPos = this.wrotePosition.get();
 
@@ -244,6 +261,7 @@ public class MappedFile extends ReferenceResource {
         return false;
     }
 
+    // CODE_MARK [store-putmessage] 直接往 fileChannel 写
     /**
      * Content of data from offset to offset + length will be wrote to file.
      *
@@ -267,6 +285,12 @@ public class MappedFile extends ReferenceResource {
         return false;
     }
 
+    /* CODE_MARK [store-file] 两种情况
+            如果 writeBuffer != null，则将 fileChannel 刷新到磁盘
+            否则将 mappedByteBuffer 刷新到磁盘
+            区别是， 刷 fileChnnel 只会刷新到 fileChannel.write 的部分（即 commit 部分）
+                    刷  mappedByteBuffer 会整个刷
+     */
     /**
      * @return The current flushed position
      */
@@ -296,6 +320,10 @@ public class MappedFile extends ReferenceResource {
         return this.getFlushedPosition();
     }
 
+    /* CODE_MARK [store-file] 两种情况：
+            如果 writeBuffer == null，则没东西要 commit
+            否则，调用 commit0 将 writeBuffer 写到 fileChannel
+     */
     public int commit(final int commitLeastPages) {
         if (writeBuffer == null) {
             //no need to commit data to file channel, so just regard wrotePosition as committedPosition.
@@ -384,6 +412,7 @@ public class MappedFile extends ReferenceResource {
         if ((pos + size) <= readPosition) {
 
             if (this.hold()) {
+                // CODE_MARK [store-putmessage] 从 pos 开始取 size 字节到 buffer 并返回
                 ByteBuffer byteBuffer = this.mappedByteBuffer.slice();
                 byteBuffer.position(pos);
                 ByteBuffer byteBufferNew = byteBuffer.slice();
@@ -405,6 +434,7 @@ public class MappedFile extends ReferenceResource {
         int readPosition = getReadPosition();
         if (pos < readPosition && pos >= 0) {
             if (this.hold()) {
+                // CODE_MARK [store-putmessage] 将 pos 到 read position 间的数据返回
                 ByteBuffer byteBuffer = this.mappedByteBuffer.slice();
                 byteBuffer.position(pos);
                 int size = readPosition - pos;
@@ -484,13 +514,17 @@ public class MappedFile extends ReferenceResource {
         this.committedPosition.set(pos);
     }
 
+    // CODE_MARK [store-file] 预热文件
     public void warmMappedFile(FlushDiskType type, int pages) {
         long beginTime = System.currentTimeMillis();
         ByteBuffer byteBuffer = this.mappedByteBuffer.slice();
         int flush = 0;
         long time = System.currentTimeMillis();
+
+        // CODE_MARK [store-file] 每隔 4k 写一个 0
         for (int i = 0, j = 0; i < this.fileSize; i += MappedFile.OS_PAGE_SIZE, j++) {
             byteBuffer.put(i, (byte) 0);
+
             // force flush when flush disk type is sync
             if (type == FlushDiskType.SYNC_FLUSH) {
                 if ((i / OS_PAGE_SIZE) - (flush / OS_PAGE_SIZE) >= pages) {
@@ -520,6 +554,7 @@ public class MappedFile extends ReferenceResource {
         log.info("mapped file warm-up done. mappedFile={}, costTime={}", this.getFileName(),
             System.currentTimeMillis() - beginTime);
 
+        // CODE_MARK [store-file] 锁定内存，防止被换出
         this.mlock();
     }
 

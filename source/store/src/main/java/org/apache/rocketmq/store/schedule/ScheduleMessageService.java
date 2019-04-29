@@ -44,6 +44,9 @@ import org.apache.rocketmq.store.PutMessageStatus;
 import org.apache.rocketmq.store.SelectMappedBufferResult;
 import org.apache.rocketmq.store.config.StorePathConfigHelper;
 
+/* CODE_MARK [store-message-schedule] 处理延时投递消息
+       原理
+ */
 public class ScheduleMessageService extends ConfigManager {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.STORE_LOGGER_NAME);
 
@@ -52,11 +55,14 @@ public class ScheduleMessageService extends ConfigManager {
     private static final long DELAY_FOR_A_WHILE = 100L;
     private static final long DELAY_FOR_A_PERIOD = 10000L;
 
+    // CODE_MARK [store-message-schedule] 保存每个级别延时多少时间
     private final ConcurrentMap<Integer /* level */, Long/* delay timeMillis */> delayLevelTable =
         new ConcurrentHashMap<Integer, Long>(32);
 
+    // CODE_MARK [store-message-schedule] 保存每个级别最后调度的消息在 Consume Queue 的位置
     private final ConcurrentMap<Integer /* level */, Long/* offset */> offsetTable =
         new ConcurrentHashMap<Integer, Long>(32);
+
     private final DefaultMessageStore defaultMessageStore;
     private final AtomicBoolean started = new AtomicBoolean(false);
     private Timer timer;
@@ -121,11 +127,13 @@ public class ScheduleMessageService extends ConfigManager {
                     offset = 0L;
                 }
 
+                // CODE_MARK [store-message-schedule] 每个级别都调度定时器
                 if (timeDelay != null) {
                     this.timer.schedule(new DeliverDelayedMessageTimerTask(level, offset), FIRST_DELAY_TIME);
                 }
             }
 
+            // CODE_MARK [store-message-schedule] 定时将信息写到磁盘
             this.timer.scheduleAtFixedRate(new TimerTask() {
 
                 @Override
@@ -166,6 +174,7 @@ public class ScheduleMessageService extends ConfigManager {
         return result;
     }
 
+    // CODE_MARK [store-message-schedule] delayOffset.json
     @Override
     public String configFilePath() {
         return StorePathConfigHelper.getDelayOffsetStorePath(this.defaultMessageStore.getMessageStoreConfig()
@@ -222,6 +231,8 @@ public class ScheduleMessageService extends ConfigManager {
     }
 
     class DeliverDelayedMessageTimerTask extends TimerTask {
+
+        // CODE_MARK [store-message-schedule] 一个 task 处理一个 level 的延时消息
         private final int delayLevel;
         private final long offset;
 
@@ -259,6 +270,7 @@ public class ScheduleMessageService extends ConfigManager {
             return result;
         }
 
+        // CODE_MARK [store-message-schedule] 扫描任务，查看哪些消息到期
         public void executeOnTimeup() {
             ConsumeQueue cq =
                 ScheduleMessageService.this.defaultMessageStore.findConsumeQueue(SCHEDULE_TOPIC,
@@ -273,6 +285,8 @@ public class ScheduleMessageService extends ConfigManager {
                         long nextOffset = offset;
                         int i = 0;
                         ConsumeQueueExt.CqExtUnit cqExtUnit = new ConsumeQueueExt.CqExtUnit();
+
+                        // CODE_MARK [store-message-schedule] 遍历一个 queue 的所有消息
                         for (; i < bufferCQ.getSize(); i += ConsumeQueue.CQ_STORE_UNIT_SIZE) {
                             long offsetPy = bufferCQ.getByteBuffer().getLong();
                             int sizePy = bufferCQ.getByteBuffer().getInt();
@@ -295,6 +309,7 @@ public class ScheduleMessageService extends ConfigManager {
 
                             nextOffset = offset + (i / ConsumeQueue.CQ_STORE_UNIT_SIZE);
 
+                            // CODE_MARK [store-message-schedule] 如果 deliverTimestamp < now 即是过期
                             long countdown = deliverTimestamp - now;
 
                             if (countdown <= 0) {
@@ -304,6 +319,7 @@ public class ScheduleMessageService extends ConfigManager {
 
                                 if (msgExt != null) {
                                     try {
+                                        // CODE_MARK [store-message-schedule] 到期，发送到真正的 topic
                                         MessageExtBrokerInner msgInner = this.messageTimeup(msgExt);
                                         PutMessageResult putMessageResult =
                                             ScheduleMessageService.this.writeMessageStore
@@ -346,6 +362,7 @@ public class ScheduleMessageService extends ConfigManager {
                             }
                         } // end of for
 
+                        // CODE_MARK [store-message-schedule] 重新调度 timer
                         nextOffset = offset + (i / ConsumeQueue.CQ_STORE_UNIT_SIZE);
                         ScheduleMessageService.this.timer.schedule(new DeliverDelayedMessageTimerTask(
                             this.delayLevel, nextOffset), DELAY_FOR_A_WHILE);

@@ -29,6 +29,7 @@ import org.apache.rocketmq.common.constant.LoggerName;
 import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.logging.InternalLoggerFactory;
 
+// CODE_MARK [rtore-file] mapped file 都是一组使用的，这个类负责将 mapped file 组织起来
 public class MappedFileQueue {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.STORE_LOGGER_NAME);
     private static final InternalLogger LOG_ERROR = InternalLoggerFactory.getLogger(LoggerName.STORE_ERROR_LOGGER_NAME);
@@ -39,8 +40,10 @@ public class MappedFileQueue {
 
     private final int mappedFileSize;
 
+    // CODE_MARK [store-file] 多个 mapped file
     private final CopyOnWriteArrayList<MappedFile> mappedFiles = new CopyOnWriteArrayList<MappedFile>();
 
+    // CODE_MARK [store-file] 文件预热
     private final AllocateMappedFileService allocateMappedFileService;
 
     private long flushedWhere = 0;
@@ -63,6 +66,9 @@ public class MappedFileQueue {
             while (iterator.hasNext()) {
                 MappedFile cur = iterator.next();
 
+                /* CODE_MARK [store-file] 检查 mappedFiles，确保里面数据没坏
+                       cur 的 from offset - pre 的 from offset = mappedFileSize
+                 */
                 if (pre != null) {
                     if (cur.getFileFromOffset() - pre.getFileFromOffset() != this.mappedFileSize) {
                         LOG_ERROR.error("[BUG]The mappedFile queue's data is damaged, the adjacent mappedFile's offset don't match. pre file {}, cur file {}",
@@ -74,6 +80,7 @@ public class MappedFileQueue {
         }
     }
 
+    // CODE_MARK [store-file] 从头开始，找到第一个 修改时间 > timestamp 的 mapped file
     public MappedFile getMappedFileByTime(final long timestamp) {
         Object[] mfs = this.copyMappedFiles(0);
 
@@ -101,6 +108,7 @@ public class MappedFileQueue {
         return mfs;
     }
 
+    // CODE_MARK [store-file] 将 offset 之前的 MappedFile 从 mappedFiles 中删除
     public void truncateDirtyFiles(long offset) {
         List<MappedFile> willRemoveFiles = new ArrayList<MappedFile>();
 
@@ -145,6 +153,7 @@ public class MappedFileQueue {
     }
 
     public boolean load() {
+        // CODE_MARK [store-file] 加载指定目录下的所有文件
         File dir = new File(this.storePath);
         File[] files = dir.listFiles();
         if (files != null) {
@@ -209,6 +218,7 @@ public class MappedFileQueue {
                 + UtilAll.offset2FileName(createOffset + this.mappedFileSize);
             MappedFile mappedFile = null;
 
+            // CODE_MARK [store-file] 创建文件
             if (this.allocateMappedFileService != null) {
                 mappedFile = this.allocateMappedFileService.putRequestAndReturnMappedFile(nextFilePath,
                     nextNextFilePath, this.mappedFileSize);
@@ -289,6 +299,7 @@ public class MappedFileQueue {
 
         if (!this.mappedFiles.isEmpty()) {
             try {
+                // CODE_MARK [store-file] 第一个文件的 from offset
                 return this.mappedFiles.get(0).getFileFromOffset();
             } catch (IndexOutOfBoundsException e) {
                 //continue;
@@ -300,6 +311,7 @@ public class MappedFileQueue {
     }
 
     public long getMaxOffset() {
+        // CODE_MARK [store-file] 最后一个文件的 from offset + read position
         MappedFile mappedFile = getLastMappedFile();
         if (mappedFile != null) {
             return mappedFile.getFileFromOffset() + mappedFile.getReadPosition();
@@ -308,6 +320,7 @@ public class MappedFileQueue {
     }
 
     public long getMaxWrotePosition() {
+        // CODE_MARK [store-file] 最后一个文件的 from offset + write position
         MappedFile mappedFile = getLastMappedFile();
         if (mappedFile != null) {
             return mappedFile.getFileFromOffset() + mappedFile.getWrotePosition();

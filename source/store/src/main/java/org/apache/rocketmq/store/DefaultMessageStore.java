@@ -59,13 +59,27 @@ import org.apache.rocketmq.store.index.QueryOffsetResult;
 import org.apache.rocketmq.store.schedule.ScheduleMessageService;
 import org.apache.rocketmq.store.stats.BrokerStatsManager;
 
+// CODE_MARK [store]  message store 的默认实现
 public class DefaultMessageStore implements MessageStore {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.STORE_LOGGER_NAME);
 
     private final MessageStoreConfig messageStoreConfig;
+
     // CommitLog
     private final CommitLog commitLog;
 
+    /* CODE_MARK [store]
+        topic1
+            1 -> ConsumeQueue
+            2 -> ConsumeQueue
+            3 -> ConsumeQueue
+            4 -> ConsumeQueue
+        topic2
+            1 -> ConsumeQueue
+            2 -> ConsumeQueue
+            3 -> ConsumeQueue
+            4 -> ConsumeQueue
+     */
     private final ConcurrentMap<String/* topic */, ConcurrentMap<Integer/* queueId */, ConsumeQueue>> consumeQueueTable;
 
     private final FlushConsumeQueueService flushConsumeQueueService;
@@ -76,6 +90,7 @@ public class DefaultMessageStore implements MessageStore {
 
     private final IndexService indexService;
 
+    // CODE_MARK [store] 文件预热
     private final AllocateMappedFileService allocateMappedFileService;
 
     private final ReputMessageService reputMessageService;
@@ -99,6 +114,7 @@ public class DefaultMessageStore implements MessageStore {
 
     private volatile boolean shutdown = true;
 
+    // CODE_MARK [store] check point
     private StoreCheckpoint storeCheckpoint;
 
     private AtomicLong printTimes = new AtomicLong(0);
@@ -175,6 +191,7 @@ public class DefaultMessageStore implements MessageStore {
         boolean result = true;
 
         try {
+            // CODE_MARK [store] 正常退出的情况下 abort 文件会被删除，如果这个文件存在，就表示之前没有正常退出
             boolean lastExitOK = !this.isTempFileExist();
             log.info("last shutdown {}", lastExitOK ? "normally" : "abnormally");
 
@@ -215,6 +232,7 @@ public class DefaultMessageStore implements MessageStore {
      */
     public void start() throws Exception {
 
+        // CODE_MARK [store] 文件上锁，确保同一个 store 目录不会被两个 store 实例使用
         lock = lockFile.getChannel().tryLock(0, 1, false);
         if (lock == null || lock.isShared() || !lock.isValid()) {
             throw new RuntimeException("Lock failed,MQ already started");
@@ -392,6 +410,8 @@ public class DefaultMessageStore implements MessageStore {
         }
 
         long beginTime = this.getSystemClock().now();
+
+        // CODE_MARK [store-putmessage] 将消息放到 commit log
         PutMessageResult result = this.commitLog.putMessage(msg);
 
         long eclipseTime = this.getSystemClock().now() - beginTime;
@@ -448,6 +468,8 @@ public class DefaultMessageStore implements MessageStore {
         }
 
         long beginTime = this.getSystemClock().now();
+
+        // CODE_MARK [store-putmessage] 将批量消息放到 commit log
         PutMessageResult result = this.commitLog.putMessages(messageExtBatch);
 
         long eclipseTime = this.getSystemClock().now() - beginTime;
@@ -1218,8 +1240,10 @@ public class DefaultMessageStore implements MessageStore {
         log.info(fileName + (result ? " create OK" : " already exists"));
     }
 
+    // CODE_MARK [store] 定时任务
     private void addScheduleTask() {
 
+        // CODE_MARK [store] 定时清理文件
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
             @Override
             public void run() {
@@ -1227,6 +1251,7 @@ public class DefaultMessageStore implements MessageStore {
             }
         }, 1000 * 60, this.messageStoreConfig.getCleanResourceInterval(), TimeUnit.MILLISECONDS);
 
+        // CODE_MARK [store] 定时检查 commit log 和 consume queue
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
             @Override
             public void run() {
@@ -1234,6 +1259,7 @@ public class DefaultMessageStore implements MessageStore {
             }
         }, 1, 10, TimeUnit.MINUTES);
 
+        // CODE_MARK [store] 定时打印线程堆栈
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
             @Override
             public void run() {
@@ -1328,12 +1354,14 @@ public class DefaultMessageStore implements MessageStore {
     private void recover(final boolean lastExitOK) {
         long maxPhyOffsetOfConsumeQueue = this.recoverConsumeQueue();
 
+        // CODE_MARK [store] 从 checkpoint 恢复 commit log
         if (lastExitOK) {
             this.commitLog.recoverNormally(maxPhyOffsetOfConsumeQueue);
         } else {
             this.commitLog.recoverAbnormally(maxPhyOffsetOfConsumeQueue);
         }
 
+        // CODE_MARK [store] 恢复 consume queue
         this.recoverTopicQueueTable();
     }
 
@@ -1476,6 +1504,7 @@ public class DefaultMessageStore implements MessageStore {
         }, 6, TimeUnit.SECONDS);
     }
 
+    // CODE_MARK [store] 写 consume queue
     class CommitLogDispatcherBuildConsumeQueue implements CommitLogDispatcher {
 
         @Override
@@ -1493,6 +1522,7 @@ public class DefaultMessageStore implements MessageStore {
         }
     }
 
+    // CODE_MARK [store] 创建索引
     class CommitLogDispatcherBuildIndex implements CommitLogDispatcher {
 
         @Override
@@ -1815,6 +1845,8 @@ public class DefaultMessageStore implements MessageStore {
                     this.reputFromOffset, DefaultMessageStore.this.commitLog.getMinOffset());
                 this.reputFromOffset = DefaultMessageStore.this.commitLog.getMinOffset();
             }
+
+            // CODE_MARK [store] 由 reputFromOffset 这个位置开始遍历 commit log, 并做处理
             for (boolean doNext = true; this.isCommitLogAvailable() && doNext; ) {
 
                 if (DefaultMessageStore.this.getMessageStoreConfig().isDuplicationEnable()
@@ -1838,6 +1870,8 @@ public class DefaultMessageStore implements MessageStore {
 
                                     if (BrokerRole.SLAVE != DefaultMessageStore.this.getMessageStoreConfig().getBrokerRole()
                                         && DefaultMessageStore.this.brokerConfig.isLongPollingEnable()) {
+
+                                        // CODE_MARK [store] 如果长轮询开启了，通知
                                         DefaultMessageStore.this.messageArrivingListener.arriving(dispatchRequest.getTopic(),
                                             dispatchRequest.getQueueId(), dispatchRequest.getConsumeQueueOffset() + 1,
                                             dispatchRequest.getTagsCode(), dispatchRequest.getStoreTimestamp(),
@@ -1847,8 +1881,10 @@ public class DefaultMessageStore implements MessageStore {
                                     this.reputFromOffset += size;
                                     readSize += size;
                                     if (DefaultMessageStore.this.getMessageStoreConfig().getBrokerRole() == BrokerRole.SLAVE) {
+
                                         DefaultMessageStore.this.storeStatsService
                                             .getSinglePutMessageTopicTimesTotal(dispatchRequest.getTopic()).incrementAndGet();
+
                                         DefaultMessageStore.this.storeStatsService
                                             .getSinglePutMessageTopicSizeTotal(dispatchRequest.getTopic())
                                             .addAndGet(dispatchRequest.getMsgSize());

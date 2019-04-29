@@ -32,6 +32,7 @@ public class ConsumeQueue {
 
     private final DefaultMessageStore defaultMessageStore;
 
+    // CODE_MARK [store-cq] consume queue 文件
     private final MappedFileQueue mappedFileQueue;
     private final String topic;
     private final int queueId;
@@ -417,6 +418,7 @@ public class ConsumeQueue {
         this.defaultMessageStore.getRunningFlags().makeLogicsQueueError();
     }
 
+    // CODE_MARK [store-putmessage] 将消息在 commit long 中的 offset 和 size 写到 consume queue
     private boolean putMessagePositionInfo(final long offset, final int size, final long tagsCode,
         final long cqOffset) {
 

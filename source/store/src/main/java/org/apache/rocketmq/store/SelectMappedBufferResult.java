@@ -59,6 +59,7 @@ public class SelectMappedBufferResult {
 //        }
 //    }
 
+    // CODE_MARK [store] 用完要释放
     public synchronized void release() {
         if (this.mappedFile != null) {
             this.mappedFile.release();

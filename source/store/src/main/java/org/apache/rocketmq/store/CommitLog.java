@@ -48,7 +48,10 @@ public class CommitLog {
     protected static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.STORE_LOGGER_NAME);
     // End of file empty MAGIC CODE cbd43194
     protected final static int BLANK_MAGIC_CODE = -875286124;
+
+    // CODE_MARK [store-file] 操作 commit log 文件的 MappedFileQueue;
     protected final MappedFileQueue mappedFileQueue;
+
     protected final DefaultMessageStore defaultMessageStore;
     private final FlushCommitLogService flushCommitLogService;
 
@@ -550,6 +553,8 @@ public class CommitLog {
         final int tranType = MessageSysFlag.getTransactionValue(msg.getSysFlag());
         if (tranType == MessageSysFlag.TRANSACTION_NOT_TYPE
             || tranType == MessageSysFlag.TRANSACTION_COMMIT_TYPE) {
+
+            // CODE_MARK [store-putmessage] 延时投递
             // Delay Delivery
             if (msg.getDelayTimeLevel() > 0) {
                 if (msg.getDelayTimeLevel() > this.defaultMessageStore.getScheduleMessageService().getMaxDelayLevel()) {
@@ -564,6 +569,7 @@ public class CommitLog {
                 MessageAccessor.putProperty(msg, MessageConst.PROPERTY_REAL_QUEUE_ID, String.valueOf(msg.getQueueId()));
                 msg.setPropertiesString(MessageDecoder.messageProperties2String(msg.getProperties()));
 
+                // CODE_MARK [store-putmessage] 延时消息都先写到这个 topic
                 msg.setTopic(topic);
                 msg.setQueueId(queueId);
             }
@@ -591,6 +597,7 @@ public class CommitLog {
                 return new PutMessageResult(PutMessageStatus.CREATE_MAPEDFILE_FAILED, null);
             }
 
+            // CODE_MARK [store-putmessage] 消息写到 mapped file
             result = mappedFile.appendMessage(msg, this.appendMessageCallback);
             switch (result.getStatus()) {
                 case PUT_OK:
@@ -720,6 +727,8 @@ public class CommitLog {
 
         long eclipseTimeInLock = 0;
         MappedFile unlockMappedFile = null;
+
+        // CODE_MARK [store-putmessage] 取最后一个 mapped file
         MappedFile mappedFile = this.mappedFileQueue.getLastMappedFile();
 
         //fine-grained lock instead of the coarse-grained
@@ -736,6 +745,7 @@ public class CommitLog {
             // global
             messageExtBatch.setStoreTimestamp(beginLockTimestamp);
 
+            // // CODE_MARK [store-putmessage] 取一下个 mapped file
             if (null == mappedFile || mappedFile.isFull()) {
                 mappedFile = this.mappedFileQueue.getLastMappedFile(0); // Mark: NewFile may be cause noise
             }
@@ -745,6 +755,7 @@ public class CommitLog {
                 return new PutMessageResult(PutMessageStatus.CREATE_MAPEDFILE_FAILED, null);
             }
 
+            // CODE_MARK [store-putmessage] 批量消息写到 mapped file
             result = mappedFile.appendMessages(messageExtBatch, this.appendMessageCallback);
             switch (result.getStatus()) {
                 case PUT_OK:
@@ -793,6 +804,7 @@ public class CommitLog {
         storeStatsService.getSinglePutMessageTopicTimesTotal(messageExtBatch.getTopic()).addAndGet(result.getMsgNum());
         storeStatsService.getSinglePutMessageTopicSizeTotal(messageExtBatch.getTopic()).addAndGet(result.getWroteBytes());
 
+        // CODE_MARK [store-putmessage] 刷盘
         handleDiskFlush(result, putMessageResult, messageExtBatch);
 
         handleHA(result, putMessageResult, messageExtBatch);
@@ -858,6 +870,7 @@ public class CommitLog {
         this.mappedFileQueue.destroy();
     }
 
+    // CODE_MARK [store-putmessage] 直接写数据
     public boolean appendData(long startOffset, byte[] data) {
         putMessageLock.lock();
         try {
@@ -1170,6 +1183,7 @@ public class CommitLog {
         }
     }
 
+    // CODE_MARK [store-putmessage] 将消息写到 commit log
     class DefaultAppendMessageCallback implements AppendMessageCallback {
         // File at the end of the minimum fixed length empty
         private static final int END_FILE_MIN_BLANK_LENGTH = 4 + 4;
@@ -1274,6 +1288,7 @@ public class CommitLog {
                     queueOffset, CommitLog.this.defaultMessageStore.now() - beginTimeMills);
             }
 
+            // CODE_MARK [store-putmessage] 将消息写到 msgStoreItemMemory
             // Initialization of storage space
             this.resetByteBuffer(msgStoreItemMemory, msgLen);
             // 1 TOTALSIZE
@@ -1320,6 +1335,8 @@ public class CommitLog {
                 this.msgStoreItemMemory.put(propertiesData);
 
             final long beginTimeMills = CommitLog.this.defaultMessageStore.now();
+
+            // CODE_MARK [store-putmessage] 将 msgStoreItemMemory 写到 byteBuffer
             // Write messages to the queue buffer
             byteBuffer.put(this.msgStoreItemMemory.array(), 0, msgLen);
 
