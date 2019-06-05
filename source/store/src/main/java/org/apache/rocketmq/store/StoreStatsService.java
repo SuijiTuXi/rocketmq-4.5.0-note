@@ -41,6 +41,7 @@ public class StoreStatsService extends ServiceThread {
 
     private static int printTPSInterval = 60 * 1;
 
+    // CODE_MARK [stats] put 消息失败次数
     private final AtomicLong putMessageFailedTimes = new AtomicLong(0);
 
     private final ConcurrentMap<String, AtomicLong> putMessageTopicTimesTotal =
@@ -51,11 +52,14 @@ public class StoreStatsService extends ServiceThread {
     private final AtomicLong getMessageTimesTotalFound = new AtomicLong(0);
     private final AtomicLong getMessageTransferedMsgCount = new AtomicLong(0);
     private final AtomicLong getMessageTimesTotalMiss = new AtomicLong(0);
-    private final LinkedList<CallSnapshot> putTimesList = new LinkedList<CallSnapshot>();
 
+    // CODE_MARK [stats] 取样快照
+    private final LinkedList<CallSnapshot> putTimesList = new LinkedList<CallSnapshot>();
     private final LinkedList<CallSnapshot> getTimesFoundList = new LinkedList<CallSnapshot>();
     private final LinkedList<CallSnapshot> getTimesMissList = new LinkedList<CallSnapshot>();
     private final LinkedList<CallSnapshot> transferedMsgCountList = new LinkedList<CallSnapshot>();
+
+    // CODE_MARK [stats] 保存 put 消息所花费时间的分布
     private volatile AtomicLong[] putMessageDistributeTime;
     private long messageStoreBootTimestamp = System.currentTimeMillis();
     private volatile long putMessageEntireTimeMax = 0;
@@ -467,6 +471,7 @@ public class StoreStatsService extends ServiceThread {
         return StoreStatsService.class.getSimpleName();
     }
 
+    // CODE_MARK [stats] 取样
     private void sampling() {
         this.lockSampling.lock();
         try {

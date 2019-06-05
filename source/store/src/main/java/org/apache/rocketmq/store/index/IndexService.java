@@ -198,6 +198,21 @@ public class IndexService {
         return topic + "#" + key;
     }
 
+    private IndexFile putKey(IndexFile indexFile, DispatchRequest msg, String idxKey) {
+        for (boolean ok = indexFile.putKey(idxKey, msg.getCommitLogOffset(), msg.getStoreTimestamp()); !ok; ) {
+            log.warn("Index file [" + indexFile.getFileName() + "] is full, trying to create another one");
+
+            indexFile = retryGetAndCreateIndexFile();
+            if (null == indexFile) {
+                return null;
+            }
+
+            ok = indexFile.putKey(idxKey, msg.getCommitLogOffset(), msg.getStoreTimestamp());
+        }
+
+        return indexFile;
+    }
+
     public void buildIndex(DispatchRequest req) {
         IndexFile indexFile = retryGetAndCreateIndexFile();
         if (indexFile != null) {
@@ -243,21 +258,6 @@ public class IndexService {
         } else {
             log.error("build index error, stop building index");
         }
-    }
-
-    private IndexFile putKey(IndexFile indexFile, DispatchRequest msg, String idxKey) {
-        for (boolean ok = indexFile.putKey(idxKey, msg.getCommitLogOffset(), msg.getStoreTimestamp()); !ok; ) {
-            log.warn("Index file [" + indexFile.getFileName() + "] is full, trying to create another one");
-
-            indexFile = retryGetAndCreateIndexFile();
-            if (null == indexFile) {
-                return null;
-            }
-
-            ok = indexFile.putKey(idxKey, msg.getCommitLogOffset(), msg.getStoreTimestamp());
-        }
-
-        return indexFile;
     }
 
     /**
