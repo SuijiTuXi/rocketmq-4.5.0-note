@@ -29,7 +29,7 @@ public class GetMessageResult {
     private final List<ByteBuffer> messageBufferList = new ArrayList<ByteBuffer>(100);
 
     private GetMessageStatus status;
-    private long nextBeginOffset;
+    private long nextBeginOffset; // CODE_MARK [pull-message] 下次从 consume queue 的哪个位置读
     private long minOffset;
     private long maxOffset;
 

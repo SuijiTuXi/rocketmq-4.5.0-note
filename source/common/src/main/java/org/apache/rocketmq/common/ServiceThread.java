@@ -126,6 +126,7 @@ public abstract class ServiceThread implements Runnable {
         }
     }
 
+    // CODE_MARK [common] 使线程等待 interval ms 后，再执行。 如果 waitForRunning 之前 wakeup 已经被调用，则直接返回
     protected void waitForRunning(long interval) {
         if (hasNotified.compareAndSet(true, false)) {
             this.onWaitEnd();

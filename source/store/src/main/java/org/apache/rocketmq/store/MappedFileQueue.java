@@ -67,7 +67,7 @@ public class MappedFileQueue {
                 MappedFile cur = iterator.next();
 
                 /* CODE_MARK [store-file] 检查 mappedFiles，确保里面数据没坏
-                       cur 的 from offset - pre 的 from offset = mappedFileSize
+                    cur 的 from offset - pre 的 from offset = mappedFileSize
                  */
                 if (pre != null) {
                     if (cur.getFileFromOffset() - pre.getFileFromOffset() != this.mappedFileSize) {
@@ -212,6 +212,7 @@ public class MappedFileQueue {
             createOffset = mappedFileLast.getFileFromOffset() + this.mappedFileSize;
         }
 
+        // CODE_MARK [store-file] 创建新的 MappedFile 对象和文件，并返回
         if (createOffset != -1 && needCreate) {
             String nextFilePath = this.storePath + File.separator + UtilAll.offset2FileName(createOffset);
             String nextNextFilePath = this.storePath + File.separator

@@ -292,6 +292,7 @@ public class HAService {
                             log.warn("transfer messsage to slave timeout, " + req.getNextOffset());
                         }
 
+                        // CODE_MARK [master-slave] 通知正在等待同步完成的线程
                         req.wakeupCustomer(transferOK);
                     }
 
@@ -464,7 +465,7 @@ public class HAService {
                         this.byteBufferRead.position(this.dispatchPostion + msgHeaderSize);
                         this.byteBufferRead.get(bodyData);
 
-                        /* CODE_MARK [master-slave] slave 将 master 发送的 commit log 添加到自己的 commit */
+                        /* CODE_MARK [master-slave] slave 将 master 发送的 commit log 添加到自己的 commit log */
                         HAService.this.defaultMessageStore.appendToCommitLog(masterPhyOffset, bodyData);
 
                         this.byteBufferRead.position(readSocketPos);

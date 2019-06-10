@@ -63,6 +63,8 @@ public class MQFaultStrategy {
                     int pos = Math.abs(index++) % tpInfo.getMessageQueueList().size();
                     if (pos < 0)
                         pos = 0;
+
+                    // CODE_MARK 选一个 MessageQueue，如果这个 mq 所在的 broker 的时延在可接受范围内，就返回
                     MessageQueue mq = tpInfo.getMessageQueueList().get(pos);
                     if (latencyFaultTolerance.isAvailable(mq.getBrokerName())) {
                         if (null == lastBrokerName || mq.getBrokerName().equals(lastBrokerName))
@@ -70,6 +72,7 @@ public class MQFaultStrategy {
                     }
                 }
 
+                // CODE_MARK 到这里的话，前面没选出一个 MQ， 这里需要选一个返回
                 final String notBestBroker = latencyFaultTolerance.pickOneAtLeast();
                 int writeQueueNums = tpInfo.getQueueIdByBroker(notBestBroker);
                 if (writeQueueNums > 0) {
@@ -89,6 +92,7 @@ public class MQFaultStrategy {
             return tpInfo.selectOneMessageQueue();
         }
 
+        // CODE_MARK [producer] 在列表中选一个
         return tpInfo.selectOneMessageQueue(lastBrokerName);
     }
 

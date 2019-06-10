@@ -507,7 +507,9 @@ public class DefaultMessageStore implements MessageStore {
         return commitLog;
     }
 
-    public GetMessageResult getMessage(final String group, final String topic, final int queueId, final long offset,
+    // CODE_MARK [pull-message] 读取指定 topic-queue 下的消息
+    public GetMessageResult getMessage(final String group, final String topic, final int queueId,
+        final long offset,
         final int maxMsgNums,
         final MessageFilter messageFilter) {
         if (this.shutdown) {
@@ -553,6 +555,7 @@ public class DefaultMessageStore implements MessageStore {
                     nextBeginOffset = nextOffsetCorrection(offset, maxOffset);
                 }
             } else {
+                // CODE_MARK [pull-message] 先从 Consume queue 读消息逻辑信息
                 SelectMappedBufferResult bufferConsumeQueue = consumeQueue.getIndexBuffer(offset);
                 if (bufferConsumeQueue != null) {
                     try {
@@ -606,6 +609,7 @@ public class DefaultMessageStore implements MessageStore {
                                 continue;
                             }
 
+                            // CODE_MARK [pull-message] 从 commit log 读消息
                             SelectMappedBufferResult selectResult = this.commitLog.getMessage(offsetPy, sizePy);
                             if (null == selectResult) {
                                 if (getResult.getBufferTotalSize() == 0) {
@@ -639,6 +643,7 @@ public class DefaultMessageStore implements MessageStore {
 
                         nextBeginOffset = offset + (i / ConsumeQueue.CQ_STORE_UNIT_SIZE);
 
+                        // CODE_MARK [pull-message] 建议从 slave 读
                         long diff = maxOffsetPy - maxPhyOffsetPulling;
                         long memory = (long) (StoreUtil.TOTAL_PHYSICAL_MEMORY_SIZE
                             * (this.messageStoreConfig.getAccessMessageInMemoryMaxRatio() / 100.0));

@@ -71,6 +71,11 @@ public class CommitLog {
             defaultMessageStore.getMessageStoreConfig().getMapedFileSizeCommitLog(), defaultMessageStore.getAllocateMappedFileService());
         this.defaultMessageStore = defaultMessageStore;
 
+        /* CODE_MARK [store-file] flush 线程
+            SYNC_FLUSH: GroupCommitService
+            ASYNC_FLUSH: CommitRealTimeService
+            两个都继承 FlushCommitLogService
+         */
         if (FlushDiskType.SYNC_FLUSH == defaultMessageStore.getMessageStoreConfig().getFlushDiskType()) {
             this.flushCommitLogService = new GroupCommitService();
         } else {
@@ -843,6 +848,7 @@ public class CommitLog {
         return -1;
     }
 
+    // CODE_MARK 获取 offset 位置开始，size 大小的数据块
     public SelectMappedBufferResult getMessage(final long offset, final int size) {
         int mappedFileSize = this.defaultMessageStore.getMessageStoreConfig().getMapedFileSizeCommitLog();
         MappedFile mappedFile = this.mappedFileQueue.findMappedFileByOffset(offset, offset == 0);
