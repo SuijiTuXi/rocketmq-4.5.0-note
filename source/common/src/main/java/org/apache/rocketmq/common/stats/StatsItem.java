@@ -49,6 +49,9 @@ public class StatsItem {
         this.log = log;
     }
 
+    /**
+     * CODE_MARK [stats] 从快照计算 TPS
+     */
     private static StatsSnapshot computeStatsData(final LinkedList<CallSnapshot> csList) {
         StatsSnapshot statsSnapshot = new StatsSnapshot();
         synchronized (csList) {

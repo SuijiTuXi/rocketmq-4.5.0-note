@@ -75,6 +75,7 @@ public class StoreCheckpoint {
         }
     }
 
+    // CODE_MARK [store] check point 只写这 3 个字段
     public void flush() {
         this.mappedByteBuffer.putLong(0, this.physicMsgTimestamp);
         this.mappedByteBuffer.putLong(8, this.logicsMsgTimestamp);

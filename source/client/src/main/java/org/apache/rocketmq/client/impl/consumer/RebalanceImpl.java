@@ -295,6 +295,7 @@ public abstract class RebalanceImpl {
                         return;
                     }
 
+                    // CODE_MARK [consume] 去重
                     Set<MessageQueue> allocateResultSet = new HashSet<MessageQueue>();
                     if (allocateResult != null) {
                         allocateResultSet.addAll(allocateResult);

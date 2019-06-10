@@ -341,6 +341,7 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
                         case NO_NEW_MSG:
                             pullRequest.setNextOffset(pullResult.getNextBeginOffset());
 
+                            // CODE_MARK [consume] 没新消息也要更新 offset
                             DefaultMQPushConsumerImpl.this.correctTagsOffset(pullRequest);
 
                             DefaultMQPushConsumerImpl.this.executePullRequestImmediately(pullRequest);
@@ -348,6 +349,7 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
                         case NO_MATCHED_MSG:
                             pullRequest.setNextOffset(pullResult.getNextBeginOffset());
 
+                            // CODE_MARK [consume] 没匹配的消息也要更新 offset
                             DefaultMQPushConsumerImpl.this.correctTagsOffset(pullRequest);
 
                             DefaultMQPushConsumerImpl.this.executePullRequestImmediately(pullRequest);
@@ -995,6 +997,7 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
 
     @Override
     public void doRebalance() {
+        // CODE_MARK [consume] 生成拉取消息的请求
         if (!this.pause) {
             this.rebalanceImpl.doRebalance(this.isConsumeOrderly());
         }

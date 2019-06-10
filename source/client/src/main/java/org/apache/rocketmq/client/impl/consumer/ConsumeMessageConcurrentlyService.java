@@ -296,6 +296,7 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
                 List<MessageExt> msgBackFailed = new ArrayList<MessageExt>(consumeRequest.getMsgs().size());
                 for (int i = ackIndex + 1; i < consumeRequest.getMsgs().size(); i++) {
                     MessageExt msg = consumeRequest.getMsgs().get(i);
+                    // CODE_MARK [consumer-msg-handler] 发送 CONSUMER_SEND_MSG_BACK 到 broker
                     boolean result = this.sendMessageBack(msg, context);
                     if (!result) {
                         msg.setReconsumeTimes(msg.getReconsumeTimes() + 1);
@@ -313,6 +314,7 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
                 break;
         }
 
+        // CODE_MARK  [consume] 更新消费位置
         long offset = consumeRequest.getProcessQueue().removeMessage(consumeRequest.getMsgs());
         if (offset >= 0 && !consumeRequest.getProcessQueue().isDropped()) {
             this.defaultMQPushConsumerImpl.getOffsetStore().updateOffset(consumeRequest.getMessageQueue(), offset, true);

@@ -648,6 +648,7 @@ public class CommitLog {
         PutMessageResult putMessageResult = new PutMessageResult(PutMessageStatus.PUT_OK, result);
 
         // Statistics
+        // CODE_MARK [stats] 增加 topic 的 put 消息计数, 增加 topic 的 put 消息大小
         storeStatsService.getSinglePutMessageTopicTimesTotal(msg.getTopic()).incrementAndGet();
         storeStatsService.getSinglePutMessageTopicSizeTotal(topic).addAndGet(result.getWroteBytes());
 
@@ -806,6 +807,7 @@ public class CommitLog {
         PutMessageResult putMessageResult = new PutMessageResult(PutMessageStatus.PUT_OK, result);
 
         // Statistics
+        // CODE_MARK [stats] 增加 topic 的 put 消息计数, 增加 topic 的 put 消息大小
         storeStatsService.getSinglePutMessageTopicTimesTotal(messageExtBatch.getTopic()).addAndGet(result.getMsgNum());
         storeStatsService.getSinglePutMessageTopicSizeTotal(messageExtBatch.getTopic()).addAndGet(result.getWroteBytes());
 

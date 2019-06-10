@@ -540,6 +540,8 @@ public class DefaultMQProducerImpl implements MQProducerInner {
             String[] brokersSent = new String[timesTotal];
             for (; times < timesTotal; times++) {
                 String lastBrokerName = null == mq ? null : mq.getBrokerName();
+
+                // CODE_MARK [produce] 选择一个队列
                 MessageQueue mqSelected = this.selectOneMessageQueue(topicPublishInfo, lastBrokerName);
                 if (mqSelected != null) {
                     mq = mqSelected;
@@ -553,8 +555,11 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                         }
 
                         sendResult = this.sendKernelImpl(msg, mq, communicationMode, sendCallback, topicPublishInfo, timeout - costTime);
+
+                        // CODE_MARK [produce] 更新消耗的时间
                         endTimestamp = System.currentTimeMillis();
                         this.updateFaultItem(mq.getBrokerName(), endTimestamp - beginTimestampPrev, false);
+
                         switch (communicationMode) {
                             case ASYNC:
                                 return null;
