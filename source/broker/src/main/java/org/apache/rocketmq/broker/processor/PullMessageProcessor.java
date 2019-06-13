@@ -106,11 +106,17 @@ public class PullMessageProcessor implements NettyRequestProcessor {
         log.debug("receive PullMessage request command, {}", request);
 
         /* CODE_MARK [pull-message] 显示拉取消息的请求 */
-        log.info("receive pull message command from {} group = {}, topic = {}, queueId = {}",
-            brokerController.getConsumerManager().getConsumerGroupInfo(requestHeader.getConsumerGroup()).getChannelInfoTable().get(channel).getClientId(),
-            requestHeader.getConsumerGroup(),
-            requestHeader.getTopic(),
-            requestHeader.getQueueId());
+        {
+            ConsumerGroupInfo consumerGroupInfo = brokerController.getConsumerManager().getConsumerGroupInfo(requestHeader.getConsumerGroup());
+            if (!requestHeader.getTopic().startsWith("%")) {
+                log.info("receive pull message command from {} group = {}, topic = {}, queueId = {} offset = {}",
+                    consumerGroupInfo.getChannelInfoTable().get(channel).getClientId(),
+                    requestHeader.getConsumerGroup(),
+                    requestHeader.getTopic(),
+                    requestHeader.getQueueId(),
+                    requestHeader.getQueueOffset());
+            }
+        }
         /* */
 
         if (!PermName.isReadable(this.brokerController.getBrokerConfig().getBrokerPermission())) {
