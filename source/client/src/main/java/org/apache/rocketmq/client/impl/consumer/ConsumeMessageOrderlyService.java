@@ -461,6 +461,10 @@ public class ConsumeMessageOrderlyService implements ConsumeMessageService {
                             ConsumeReturnType returnType = ConsumeReturnType.SUCCESS;
                             boolean hasException = false;
                             try {
+                                /* CODE_MARK [orderly] 消息消费和拉取时都加锁
+                                 *  消息在被消费时，不会向 broker 发送 UNLOCK_BATCH_MQ，队列的消息不会被其他同个 group 的
+                                 *  consumer 取走
+                                 */
                                 this.processQueue.getLockConsume().lock();
                                 if (this.processQueue.isDropped()) {
                                     log.warn("consumeMessage, the message queue not be able to consume, because it's dropped. {}",
